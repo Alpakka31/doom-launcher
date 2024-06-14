@@ -1,0 +1,264 @@
+#!/bin/bash
+
+HEIGHT=22
+WIDTH=70
+FLATPAK_NOTICE_HEIGHT=40
+FLATPAK_NOTICE_WIDTH=90
+CHOICE_HEIGHT=4
+BACKTITLE="DOOM Launcher"
+GENERAL_MSGBOX_NOTICE_TITLE="Notice"
+SRCPORT_TITLE="Source Port selector"
+SRCPORT_MENU="Which source port do you want to use?"
+WAD_TITLE=".WAD + Mod selector"
+WAD_MENU="Which .WAD do you want to play with or without Mod support?"
+MOD_WAD_DIR_NOTICE=".WAD files => $HOME/.doom-launcher/wads
+Mod files (.WAD and .pk3) => $HOME/.doom-launcher/mods"
+MOD_NOTICE="Some mods will require a specific source port to work."
+SRCPORT_FLATPAK_NOTICE="For DOOM Launcher to be able to run your .WAD and Mod files from its directories when \
+using a flatpak version of a source port - you will need to give that flatpak a permission to access \
+that directory. \
+
+
+You need to run the following command(s) for the source port(s) you want to use: \
+
+
+* Chocolate Doom: sudo flatpak override org.chocolate_doom.ChocolateDoom --filesystem=\"$HOME/.doom-launcher\" \
+
+
+* Crispy Doom: sudo flatpak override io.github.fabiangreffrath.Doom --filesystem=\"$HOME/.doom-launcher\" \
+
+
+* GZDoom: sudo flatpak override org.zdoom.GZDoom --filesystem=\"$HOME/.doom-launcher\""
+MOD_SRCPORT_SUPPORT_GZDOOM_NOTICE="Sorry! This mod requires GZDoom source port to work correctly."
+MOD_SRCPORT_SUPPORT_CHOCOLATE_DOOM_NOTICE="Sorry! This mod requires Chocolate Doom source port to work correctly."
+MOD_SRCPORT_SUPPORT_CRISPY_DOOM_NOTICE="Sorry! This mod requires Crispy Doom source port to work correctly."
+SRCPORT=""
+RUN_EXEC=""
+IS_GZDOOM="false"
+IS_FLATPAK="false"
+WAD_DIRECTORY="$HOME/.doom-launcher/wads"
+MOD_DIRECTORY="$HOME/.doom-launcher/mods"
+
+[ ! -d "${WAD_DIRECTORY}" ] && mkdir -p "${WAD_DIRECTORY}"
+[ ! -d "${MOD_DIRECTORY}" ] && mkdir -p "${MOD_DIRECTORY}"
+
+requires_gzdoom() {
+    if [ "${IS_GZDOOM}" = "false" ]; then
+        dialog --clear \
+            --backtitle "$BACKTITLE" \
+            --title "${GENERAL_MSGBOX_NOTICE_TITLE}" \
+            --msgbox "${MOD_SRCPORT_SUPPORT_GZDOOM_NOTICE}" \
+            "$HEIGHT" "$WIDTH"
+        clear
+        exit 1
+    fi
+}
+
+is_srcport_installed() {
+    if [ "${IS_FLATPAK}" = "false" ]; then
+        if ! command -v $SRCPORT >/dev/null; then
+            dialog --clear \
+                --backtitle "$BACKTITLE" \
+                --title "${GENERAL_MSGBOX_NOTICE_TITLE}" \
+                --msgbox "${SRCPORT_NOT_INSTALLED_NOTICE}" \
+                "$HEIGHT" "$WIDTH"
+            clear
+            exit 1
+        fi
+    elif [ "${IS_FLATPAK}" = "true" ]; then
+        flatpak_srcport_is_installed=$(flatpak list | awk -F'\t' '{print $2}' | grep -P "^$SRCPORT$")
+        if [ "${flatpak_srcport_is_installed}" = "" ]; then
+            dialog --clear \
+                --backtitle "$BACKTITLE" \
+                --title "${GENERAL_MSGBOX_NOTICE_TITLE}" \
+                --msgbox "${FLATPAK_SRCPORT_NOT_INSTALLED_NOTICE}" \
+                "$HEIGHT" "$WIDTH"
+            clear
+            exit 1
+        fi
+    fi
+}
+
+SRCPORT_OPTIONS=(1 "Chocolate Doom"
+2 "Crispy Doom"
+3 "GZdoom"
+4 "Chocolate Doom (Flatpak)"
+5 "Crispy Doom (Flatpak)"
+6 "GZDoom (Flatpak)")
+
+WAD_OPTIONS=(1 "DOOM.WAD (vanilla)"
+2 "ULTIMATEDOOM.WAD (vanilla)"
+3 "DOOM2.WAD (vanilla)"
+4 "PLUTONIA.WAD (vanilla)"
+5 "TNT.WAD (vanilla)"
+6 "TNT31.WAD (vanilla)"
+7 "FREEDOOM1.WAD (vanilla)"
+8 "FREEDOOM2.WAD (vanilla)"
+9 "FREEDM.WAD (vanilla)"
+10 "DOOM.WAD (Brutal DOOM mod)"
+11 "ULTIMATEDOOM.WAD (Brutal DOOM mod)"
+12 "DOOM2.WAD (Brutal DOOM mod)"
+13 "PLUTONIA.WAD (Brutal DOOM mod)"
+14 "TNT.WAD (Brutal DOOM mod)"
+15 "TNT31.WAD (Brutal DOOM mod)"
+16 "FREEDOOM1.WAD (Brutal DOOM mod)"
+17 "FREEDOOM2.WAD (Brutal DOOM mod)"
+18 "FREEDM.WAD (Brutal DOOM mod)"
+19 "DOOM.WAD (Wolf3Doom mod)"
+20 "ULTIMATEDOOM.WAD (Wolf3Doom mod)"
+21 "DOOM2.WAD (Wolf3Doom mod)"
+22 "PLUTONIA.WAD (Wolf3Doom mod)"
+23 "TNT.WAD (Wolf3Doom mod)"
+24 "TNT31.WAD (Wolf3Doom mod)"
+25 "FREEDOOM1.WAD (Wolf3Doom mod)"
+26 "FREEDOOM2.WAD (Wolf3Doom mod)"
+27 "FREEDM.WAD (Wolf3Doom mod)"
+)
+
+dialog --clear \
+    --backtitle "$BACKTITLE" \
+    --title "${GENERAL_MSGBOX_NOTICE_TITLE}" \
+    --msgbox "${MOD_WAD_DIR_NOTICE}" \
+    "$HEIGHT" "$WIDTH"
+
+dialog --clear \
+    --backtitle "$BACKTITLE" \
+    --title "${GENERAL_MSGBOX_NOTICE_TITLE}" \
+    --msgbox "${MOD_NOTICE}" \
+    "$HEIGHT" "$WIDTH"
+
+dialog --clear \
+    --backtitle "$BACKTITLE" \
+    --title "${GENERAL_MSGBOX_NOTICE_TITLE}" \
+    --msgbox "${SRCPORT_FLATPAK_NOTICE}" \
+    "${FLATPAK_NOTICE_HEIGHT}" "${FLATPAK_NOTICE_WIDTH}"
+
+SRCPORT_CHOICE=$(dialog --clear \
+                        --backtitle "$BACKTITLE" \
+                        --title "${SRCPORT_TITLE}" \
+                        --menu "${SRCPORT_MENU}" \
+                        "$HEIGHT" "$WIDTH" "${CHOICE_HEIGHT}" \
+                        "${SRCPORT_OPTIONS[@]}" \
+                        2>&1 >/dev/tty)
+
+clear
+case ${SRCPORT_CHOICE} in
+    1) SRCPORT="chocolate-doom" ;;
+    2) SRCPORT="crispy-doom" ;;
+    3) SRCPORT="gzdoom" && IS_GZDOOM="true" ;;
+    4) SRCPORT="org.chocolate_doom.ChocolateDoom" && IS_FLATPAK="true" ;;
+    5) SRCPORT="io.github.fabiangreffrath.Doom" && IS_FLATPAK="true" ;;
+    6) SRCPORT="org.zdoom.GZDoom" && IS_FLATPAK="true" && IS_GZDOOM="true" ;;
+esac
+
+FLATPAK_SRCPORT_NOT_INSTALLED_NOTICE="Source port '$SRCPORT' (Flatpak) is not installed on your system!"
+SRCPORT_NOT_INSTALLED_NOTICE="Source port '$SRCPORT' is not installed on your system!"
+is_srcport_installed
+
+WAD_CHOICE=$(dialog --clear \
+                --backtitle "$BACKTITLE" \
+                --title "${WAD_TITLE}" \
+                --menu "${WAD_MENU}" \
+                "$HEIGHT" "$WIDTH" "${CHOICE_HEIGHT}" \
+                "${WAD_OPTIONS[@]}" \
+                2>&1 >/dev/tty)
+
+clear
+if [ "$IS_FLATPAK" = "true" ]; then
+    RUN_EXEC="flatpak run $SRCPORT"
+else
+    RUN_EXEC="$SRCPORT"
+fi
+
+case ${WAD_CHOICE} in
+    1)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/DOOM.WAD" ;;
+    2)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/ULTIMATEDOOM.WAD" ;;
+    3)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/DOOM2.WAD" ;;
+    4)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/PLUTONIA.WAD" ;;
+    5)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/TNT.WAD" ;;
+    6)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/TNT31.WAD" ;;
+    7)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDOOM1.WAD" ;;
+    8)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDOOM2.WAD" ;;
+    9)
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDM.WAD" ;;
+    10)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/DOOM.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    11)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/ULTIMATEDOOM.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    12)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/DOOM2.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    13)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/PLUTONIA.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    14)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/TNT.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    15)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/TNT31.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    16)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDOOM1.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    17)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDOOM2.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    18)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDM.WAD" \
+            -file "${MOD_DIRECTORY}/brutalv21.pk3" ;;
+    19)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/DOOM.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    20)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/ULTIMATEDOOM.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    21)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/DOOM2.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    22)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/PLUTONIA.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    23)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/TNT.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    24)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/TNT31.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    25)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDOOM1.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    26)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDOOM2.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+    27)
+        requires_gzdoom
+        $RUN_EXEC -iwad "${WAD_DIRECTORY}/FREEDM.WAD" \
+            -file "${MOD_DIRECTORY}/Wolf3Doom_MLE_v2.1.pk3" ;;
+esac
